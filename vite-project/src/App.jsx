@@ -4,6 +4,7 @@ import Hero from "./components/Hero";
 import SoundSection from "./components/SoundSection";
 import DisplaySection from "./components/DisplaySection";
 import WebGiViewer from "./components/WebGiViewer";
+import Loader from "./components/Loader";
 
 function App() {
   const webGiViewerRef = useRef();
@@ -15,6 +16,7 @@ function App() {
 
   return (
     <div className="App">
+      <Loader />
       <div ref={contentRef} id="content">
         <Nav />
         <Hero />

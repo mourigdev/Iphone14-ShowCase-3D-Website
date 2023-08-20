@@ -12,8 +12,6 @@ import {
 import {
   ViewerApp,
   AssetManagerPlugin,
-  AssetManagerBasicPopupPlugin,
-  CanvasSnipperPlugin,
   GBufferPlugin,
   ProgressivePlugin,
   TonemapPlugin,
@@ -37,9 +35,12 @@ const WebGiViewer = forwardRef((props, ref) => {
   const [cameraRef, setCameraRef] = useState(null);
   const [positionRef, setPositionRef] = useState(null);
   const canvasContainerRef = useRef(null);
+  const [displayModule, setDisplayModule] = useState(false);
+  const [isMobile, setisMobile] = useState(null);
 
   useImperativeHandle(ref, () => ({
     triggerPreview() {
+      setDisplayModule(true);
       canvasContainerRef.current.style.pointerEvents = "all";
       props.contentRef.current.style.opacity = 0;
       gsap.to(positionRef, {
@@ -64,23 +65,30 @@ const WebGiViewer = forwardRef((props, ref) => {
     },
   }));
 
-  const memorizScrollAnimation = useCallback((position, target, onUpdate) => {
-    if (position && target && onUpdate) {
-      scrollAnimation(position, target, onUpdate);
-    }
-  }, []);
+  const memorizScrollAnimation = useCallback(
+    (position, target, onUpdate, isMobile) => {
+      if (position && target && onUpdate) {
+        scrollAnimation(position, target, onUpdate, isMobile);
+      }
+    },
+    []
+  );
 
   const setupViewer = useCallback(async () => {
     const viewer = new ViewerApp({
       canvas: canvasRef.current,
     });
 
+    setViewerRef(viewer);
+
+    const isMobileTablet = mobileAndTabletCheck();
+    setisMobile(isMobileTablet);
+
     const manager = await viewer.addPlugin(AssetManagerPlugin);
     const camera = viewer.scene.activeCamera;
     const position = camera.position;
     const target = camera.target;
 
-    setViewerRef(viewer);
     setCameraRef(camera);
     setPositionRef(position);
     setTargetRef(target);
@@ -103,6 +111,13 @@ const WebGiViewer = forwardRef((props, ref) => {
     // Disable user control the canvas the module
     viewer.scene.activeCamera.setCameraOptions({ controlsEnabled: false });
 
+    if (isMobileTablet) {
+      console.log("yes its mobile");
+      position.set(-16.7, 7, 1.17, 11.7);
+      target.set(0, 1.37, 0);
+      props.contentRef.current.className = "mobile-or-tablet";
+    }
+
     window.scrollTo(0, 0);
 
     let needsUpdate = true;
@@ -119,16 +134,58 @@ const WebGiViewer = forwardRef((props, ref) => {
         needsUpdate = false;
       }
     });
-    memorizScrollAnimation(position, target, onUpdate);
+    memorizScrollAnimation(position, target, onUpdate, isMobileTablet);
   }, []);
 
   useEffect(() => {
     setupViewer();
   }, [setupViewer]);
 
+  const handleExitModule = useCallback(() => {
+    setDisplayModule(false);
+    viewerRef.scene.activeCamera.setCameraOptions({ controlsEnabled: false });
+    canvasContainerRef.current.style.pointerEvents = "none";
+    props.contentRef.current.style.opacity = 1;
+
+    gsap.to(positionRef, {
+      x: !isMobile ? 1.56 : 9.36,
+      y: !isMobile ? 5.0 : 10.95,
+      z: !isMobile ? 0.01 : 0.09,
+      scrollTrigger: {
+        trigger: ".display-section",
+        start: "top bottom",
+        end: "top top",
+        scrub: 2,
+        immediateRender: false,
+      },
+      onUpdate: () => {
+        viewerRef.setDirty();
+        cameraRef.positionTargetUpdated(true);
+      },
+    });
+
+    gsap.to(targetRef, {
+      x: !isMobile ? -0.55 : -1.62,
+      y: !isMobile ? 0.32 : 0.02,
+      z: !isMobile ? 0.0 : -0.06,
+      scrollTrigger: {
+        trigger: ".display-section",
+        start: "top bottom",
+        end: "top top",
+        scrub: 2,
+        immediateRender: false,
+      },
+    });
+  }, [cameraRef, positionRef, targetRef, viewerRef, canvasContainerRef]);
+
   return (
     <div ref={canvasContainerRef} id="webgi-canvas-container">
       <canvas id="webgi-canvas" ref={canvasRef} />
+      {displayModule && (
+        <button onClick={handleExitModule} className="button">
+          Exit
+        </button>
+      )}
     </div>
   );
 });
